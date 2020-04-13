@@ -1,0 +1,179 @@
+---
+title: "HW1_analysis"
+author: "AnnaClaire Marley"
+date: "4/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(dataRetrieval)
+library(Kendall)
+```
+
+```{r, echo = FALSE}
+# source all my functions
+source('../HW_1/functions/read_chunks.R')
+source('../HW_1/functions/extract_months.R')
+source('../HW_1/functions/graph_season_trend.R')
+```
+
+
+# Precipitation Analysis
+```{r, include=FALSE}
+precip <- read_chunks("data")
+```
+
+#### Raw precipitation data from 1980 to February 2020
+```{r, echo = FALSE}
+ggplot(data = precip, aes(x = date, y = precipitation)) +
+  geom_line()
+```
+
+#### Average yearly precipitation 
+
+```{r, echo = FALSE}
+anuual_av <- precip %>% 
+  arrange(date) %>% 
+  mutate(year = year(date)) %>% 
+  group_by(year) %>% 
+  summarize(precip_av = mean(precipitation)) 
+
+ggplot(anuual_av, aes(x = year, y = precip_av)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Annual Average Precipitation"
+  ) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_x_continuous(expand = c(0,0)) +
+  theme_bw()
+```
+
+```{r, echo = FALSE}
+# calculate linear model
+
+precip_av_lm <- lm(precip_av~year, anuual_av)
+precip_av_lm_sum <- summary(precip_av_lm)
+
+```
+
+Precipitation is decreasing by -0.003404 mm/yr and is statistically signficant, pvalue = 0.02
+
+
+#### Average spring precipitation
+```{r, echo = FALSE}
+# only look at spring precipitation 
+spring_precip <- extract_months(precip, wanted_months = c(3,4,5))
+
+# create dataframe of average yearly spring precipitation
+spring_av <- spring_precip %>% 
+  arrange(date) %>% 
+  mutate(year = year(date)) %>% 
+  group_by(year) %>% 
+  summarize(precip_av = mean(precipitation)) 
+
+# graph it and add trendline 
+graph_season_trend(spring_av, 
+                   climate_data = spring_av$precip_av,
+                   ylabel = "Average Spring Precipitation (mm)")
+
+```
+
+#### Average summer precipitation
+```{r, echo = FALSE}
+# only look at summer precipitation 
+summer_precip <- extract_months(precip, wanted_months = c(6,7,8))
+
+# create dataframe of average yearly summer precipitation
+summer_av <- summer_precip %>% 
+  arrange(date) %>% 
+  mutate(year = year(date)) %>% 
+  group_by(year) %>% 
+  summarize(precip_av = mean(precipitation)) 
+
+# graph it and add trendline 
+graph_season_trend(summer_av, 
+                   climate_data = summer_av$precip_av,
+                   ylabel = "Average Summer Precipitation (mm)")
+
+```
+
+
+#### Average Fall precipitation 
+```{r, echo = FALSE}
+# only look at fall precipitation 
+fall_precip <- extract_months(precip, wanted_months = c(9,10,11))
+
+# create dataframe of average yearly fall precipitation
+fall_av <- fall_precip %>% 
+  arrange(date) %>% 
+  mutate(year = year(date)) %>% 
+  group_by(year) %>% 
+  summarize(precip_av = mean(precipitation)) 
+
+# graph it and add trendline 
+graph_season_trend(fall_av, 
+                   climate_data = fall_av$precip_av,
+                   ylabel = "Average Fall Precipitation (mm)")
+
+```
+
+
+#### Average winter precipitation by water year
+
+```{r, echo = FALSE}
+
+winter_precip <- extract_months(precip, wanted_months = c(12,1,2))
+
+winter_av <- winter_precip %>% 
+  rename(Date = date) %>% 
+  addWaterYear() %>% 
+  group_by(waterYear) %>% 
+  summarize(precip_av = mean(precipitation)) 
+
+# graph it and add trendline 
+ggplot(winter_av, aes(x = waterYear, y = precip_av)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Average Winter Precipitation"
+  ) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_x_continuous(expand = c(0,0)) +
+  theme_bw()
+
+```
+
+#### Evaluate strengths of the trends
+```{r, echo = FALSE}
+# annual average precipitation
+av_precip_mk <- MannKendall(anuual_av$precip_av)
+# average spring precip
+spring_precip_mk <- MannKendall(spring_av$precip_av)
+# average summer precip
+sum_precip_mk <- MannKendall(summer_av$precip_av)
+# average fall precip
+fall_precip_mk <- MannKendall(fall_av$precip_av)
+# average winter precip in water years
+win_precip_mk <- MannKendall(winter_av$precip_av)
+```
+- Average annual precipitation: tau = `r round(av_precip_mk$tau, 2)`, pvalue = `r round(av_precip_mk$sl, 2)`
+- Average spring precipitation: tau = `r round(spring_precip_mk$tau, 2)`, pvalue = `r round(spring_precip_mk$sl, 2)`
+- Average summer precipitation: tau = `r round(sum_precip_mk$tau, 2)`, pvalue = `r round(sum_precip_mk$sl, 2)`
+- Average fall precipitation: tau = `r round(fall_precip_mk$tau, 2)`, pvalue = `r round(fall_precip_mk$sl, 2)`
+- Average winter precipitation: tau = `r round(win_precip_mk$tau, 2)`, pvalue = `r round(win_precip_mk$sl, 2)`
+
+# Temperature Analysis
+
+```{r, include=FALSE}
+tmax <- read_chunks("data", "*max_temp_*", variable = "temperature")
+
+
+```
+
+
+
+
