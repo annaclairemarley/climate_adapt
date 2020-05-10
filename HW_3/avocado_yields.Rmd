@@ -1,0 +1,374 @@
+---
+title: "Projected Avocado Yields"
+author: "AnnaClaire Marley"
+date: "5/7/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+library(lubridate)
+library(tidyverse)
+library(stats)
+
+```
+
+
+This markdown explores avocado yields in Ventura county under different climate projections.
+
+Avocado yield equation (from Lobell et al., 2006):
+
+Y = 17.71T<sub>x,-8</sub> - 0.29T<sup>2</sup><sub>x,-8</sub> + 3.25T<sub>n,5</sub> - 0.14T<sup>2</sup><sub>n,5</sub> + 1.00P<sub>-10</sub> - 0.31P<sup>2</sup><sub>-10</sub> - 288.09
+
+- Y: yield anomaly (ton/acre)
+- Tn: min temperature (degrees C)
+- Tx: maximum temperature
+- P: precipitation (mm)
+- subscripted numbers represent month of climate variable with negative numbers repreesenting month from the year prior to harvest
+
+
+## ACCESS 01
+
+### RCP 4.5
+
+Read in and clean data for climate projections
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# source data cleaning function
+source('~/Documents/github/climate_adapt/HW_3/functions/clean_clim.R')
+
+### max temperature ###
+tmax_4.5_og <- read_csv("../HW_3/data/tasmax_day_ACCESS1-0_rcp45.csv") 
+
+# clean and summarize by correct month
+tmax_4.5 <- clean_clim(tmax_4.5_og, type = "tmax")
+
+### min temp ###
+tmin_4.5_og <- read_csv("../HW_3/data/tasmin_day_ACCESS1-0_rcp45.csv")
+
+# clean and summarize by correct month
+tmin_4.5 <- clean_clim(tmin_4.5_og, type = "tmin")
+
+### precip ###
+precip_4.5_og <- read_csv("../HW_3/data/pr_day_ACCESS1-0_rcp45.csv",
+                          col_names=c("time", "precip"), skip = 1)
+
+# clean and summarize by correct month
+precip_4.5 <- clean_clim(precip_4.5_og, type = "precip")
+
+```
+
+Avocado anomaly 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# combine into one dataframe
+
+RCP_4.5 <- left_join(tmax_4.5, tmin_4.5, by = "year") %>% 
+  left_join(precip_4.5, by = "year")
+
+# avocado yield anomaly
+
+yield_4.5 <- RCP_4.5 %>% 
+  mutate(yield_anomaly = (17.71*lag(tmax,1) - 
+                          0.29*lag(tmax,1)^2 + 
+                          3.25*tmin - 
+                          0.14*tmin^2 + 
+                          1.00*lag(precip, 1) - 
+                          0.31*lag(precip,1)^2 - 
+                          288.09))
+# plot it
+ggplot(yield_4.5, aes(x = year, y = yield_anomaly)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Yield Anomaly (ton/acre)"
+  ) +
+  theme_classic()
+```
+
+
+### RCP 8.5
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+### tmax ###
+tmax_8.5_og <- read_csv("../HW_3/data/tasmax_day_ACCESS1-0_rcp85.csv")
+
+# clean
+tmax_8.5 <- clean_clim(tmax_8.5_og, type = "tmax")
+
+### tmin ###
+tmin_8.5_og <- read_csv("../HW_3/data/tasmin_day_ACCESS1-0_rcp85.csv")
+
+# clean
+tmin_8.5 <- clean_clim(tmin_8.5_og, type = "tmin")
+
+### precip ###
+precip_8.5_og <- read_csv("../HW_3/data/pr_day_ACCESS1-0_rcp85.csv", 
+                         col_names=c("time", "precip"), skip = 1)
+
+# clean 
+precip_8.5 <- clean_clim(precip_8.5_og, type = "precip")
+
+```
+
+Avocado anomaly 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# combine into one dataframe
+
+RCP_8.5 <- left_join(tmax_8.5, tmin_8.5, by = "year") %>% 
+  left_join(precip_8.5, by = "year")
+
+# avocado yield anomaly
+
+yield_8.5 <- RCP_8.5 %>% 
+  mutate(yield_anomaly = (17.71*lag(tmax,1) - 
+                          0.29*lag(tmax,1)^2 + 
+                          3.25*tmin - 
+                          0.14*tmin^2 + 
+                          1.00*lag(precip, 1) - 
+                          0.31*lag(precip,1)^2 - 
+                          288.09))
+# plot it
+ggplot(yield_8.5, aes(x = year, y = yield_anomaly)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Yield Anomaly (ton/acre)"
+  ) +
+  theme_classic()
+```
+
+ACCESS
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# graph together
+ACCESS_yields <- yield_8.5 %>% 
+  rename("ACCESS1-0 RCP 8.5" = yield_anomaly) %>% 
+  left_join(yield_4.5, by = "year") %>% 
+  dplyr::select(year, yield_anomaly, "ACCESS1-0 RCP 8.5") %>% 
+  rename("ACCESS1-0 RCP 4.5" = yield_anomaly) 
+
+ACCESS_gather <- ACCESS_yields %>% 
+  gather(key = "projection", value = "anomaly", -year)
+
+# plot
+ggplot(ACCESS_gather, aes(x = year, y = anomaly)) +
+  geom_line(aes(color = projection)) +
+  geom_smooth(aes(color = projection), se = FALSE) +
+  labs(
+    x = "Year",
+    y = "Yield Anomaly (tons/acre)",
+    color = "Climate Projections"
+  ) + 
+  scale_x_continuous(expand = c(0,0)) +
+  theme_classic() 
+
+
+```
+
+
+## CCSM4
+
+### RCP 4.5
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+### max temperature ###
+tmax_4.5_og <- read_csv("../HW_3/data/tasmax_day_CCSM4_rcp45.csv")
+
+# clean and summarize by correct month
+tmax_4.5 <- tmax_4.5_og %>% 
+  rename(tmax = "tasmax_day_CCSM4_rcp45") %>% 
+  mutate(year = year(time)) %>% 
+  mutate(month = month(time)) %>% 
+  group_by(year, month) %>% 
+  summarize(tmax = mean(tmax)) %>% 
+  filter(month == 8) %>% 
+  dplyr::select(year, tmax) %>% 
+  mutate(tmax = tmax - 273.15) %>% 
+  ungroup()
+
+### min temp ###
+tmin_4.5_og <- read_csv("../HW_3/data/tasmin_day_CCSM4_rcp45.csv")
+
+# clean and summarize by correct month
+tmin_4.5 <- tmin_4.5_og %>% 
+  rename(tmin = "tasmin_day_CCSM4_rcp45") %>% 
+  mutate(year = year(time)) %>% 
+  mutate(month = month(time)) %>% 
+  group_by(year, month) %>% 
+  summarize(tmin = mean(tmin)) %>% 
+  filter(month == 5) %>% 
+  dplyr::select(year, tmin) %>% 
+  mutate(tmin = tmin - 273.15) %>% 
+  ungroup()
+
+### precip ###
+precip_4.5_og <- read_csv("../HW_3/data/pr_day_CCSM4_rcp45.csv",
+                          col_names=c("time", "precip"), skip = 1)
+
+# clean and summarize by correct month
+precip_4.5 <- clean_clim(precip_4.5_og, type = "precip")
+
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# combine into one dataframe
+
+CCSM4_RCP_4.5 <- left_join(tmax_4.5, tmin_4.5, by = "year") %>% 
+  left_join(precip_4.5, by = "year")
+
+# avocado yield anomaly
+
+CCSM4_yield_4.5 <- CCSM4_RCP_4.5 %>% 
+  mutate(yield_anomaly = (17.71*lag(tmax,1) - 
+                          0.29*lag(tmax,1)^2 + 
+                          3.25*tmin - 
+                          0.14*tmin^2 + 
+                          1.00*stats::lag(precip,1) - 
+                          0.31*stats::lag(precip,1)^2 - 
+                          288.09))
+# plot it
+ggplot(CCSM4_yield_4.5, aes(x = year, y = yield_anomaly)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Yield Anomaly (ton/acre)"
+  ) +
+  theme_classic()
+```
+
+
+### RCP 8.5
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+### max temperature ###
+tmax_8.5_og <- read_csv("../HW_3/data/tasmax_day_CCSM4_rcp85.csv")
+
+# clean and summarize by correct month
+tmax_8.5 <- tmax_8.5_og %>% 
+  rename(tmax = "tasmax_day_CCSM4_rcp85") %>% 
+  mutate(year = year(time)) %>% 
+  mutate(month = month(time)) %>% 
+  group_by(year, month) %>% 
+  summarize(tmax = mean(tmax)) %>% 
+  filter(month == 8) %>% 
+  dplyr::select(year, tmax) %>% 
+  mutate(tmax = tmax - 273.15) %>% 
+  ungroup()
+
+### min temp ###
+tmin_8.5_og <- read_csv("../HW_3/data/tasmin_day_CCSM4_rcp85.csv")
+
+# clean and summarize by correct month
+tmin_8.5 <- tmin_8.5_og %>% 
+  rename(tmin = "tasmin_day_CCSM4_rcp85") %>% 
+  mutate(year = year(time)) %>% 
+  mutate(month = month(time)) %>% 
+  group_by(year, month) %>% 
+  summarize(tmin = mean(tmin)) %>% 
+  filter(month == 5) %>% 
+  dplyr::select(year, tmin) %>% 
+  mutate(tmin = tmin - 273.15) %>% 
+  ungroup()
+
+### precip ###
+precip_8.5_og <- read_csv("../HW_3/data/pr_day_CCSM4_rcp85.csv",
+                          col_names=c("time", "precip"), skip = 1)
+
+# clean and summarize by correct month
+precip_8.5 <- clean_clim(precip_8.5_og, type = "precip")
+
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# combine into one dataframe
+
+CCSM4_RCP_8.5 <- left_join(tmax_8.5, tmin_8.5, by = "year") %>% 
+  left_join(precip_8.5, by = "year")
+
+# avocado yield anomaly
+
+CCSM4_yield_8.5 <- CCSM4_RCP_8.5 %>% 
+  mutate(yield_anomaly = (17.71*lag(tmax,1) - 
+                          0.29*lag(tmax,1)^2 + 
+                          3.25*tmin - 
+                          0.14*tmin^2 + 
+                          1.00*lag(precip,1) - 
+                          0.31*lag(precip,1)^2 - 
+                          288.09))
+# plot it
+ggplot(CCSM4_yield_8.5, aes(x = year, y = yield_anomaly)) +
+  geom_line() +
+  labs(
+    x = "Year",
+    y = "Yield Anomaly (ton/acre)"
+  ) +
+  theme_classic()
+```
+
+CCSM4
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# graph together
+CCSM4_yields <- CCSM4_yield_8.5 %>% 
+  rename("CCSM4 RCP 8.5" = yield_anomaly) %>% 
+  left_join(CCSM4_yield_4.5, by = "year") %>% 
+  rename("CCSM4 RCP 4.5" = yield_anomaly) %>% 
+  dplyr::select(year, "CCSM4 RCP 4.5", "CCSM4 RCP 8.5") 
+
+CCSM4_gather <- CCSM4_yields %>% 
+  gather(key = "projection", value = "anomaly", -year)
+
+# plot
+ggplot(CCSM4_gather, aes(x = year, y = anomaly)) +
+  geom_line(aes(color = projection)) +
+  geom_smooth(aes(color = projection), se = FALSE) +
+  labs(
+    x = "Year",
+    y = "Yield Anomaly (tons/acre)",
+    color = "Climate Projections"
+  ) + 
+  scale_x_continuous(expand = c(0,0)) +
+  theme_classic() 
+
+```
+
+All together
+
+```{r}
+
+all_project <- left_join(ACCESS_yields, CCSM4_yields, by = "year") %>%
+  gather(key = "projection", value = "anomaly", -year)
+
+
+# plot
+ggplot(all_project, aes(x = year, y = anomaly)) +
+  geom_line(aes(color = projection)) +
+  geom_smooth(aes(color = projection), se = FALSE) +
+  labs(
+    x = "Year",
+    y = "Yield Anomaly (tons/acre)",
+    color = "Climate Projections"
+  ) + 
+  scale_x_continuous(expand = c(0,0), limits = c(2020,2100)) +
+  scale_y_continuous(limits = c(-6,2)) +
+  theme_classic() 
+
+```
+
+
+
+
+
+
+
+
+

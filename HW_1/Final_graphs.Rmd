@@ -1,0 +1,186 @@
+---
+title: "Final_graphs"
+author: "AnnaClaire Marley"
+date: "4/14/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+#load packages
+library(tidyverse)
+library(lubridate)
+library(dataRetrieval)
+library(Kendall)
+library(gridExtra)
+```
+
+```{r, echo = FALSE}
+# source all my functions
+source('../HW_1/functions/read_chunks.R')
+source('../HW_1/functions/extract_months.R')
+source('../HW_1/functions/graph_season_trend.R')
+source('../HW_1/functions/plot_month_anomaly.R')
+```
+
+# Notes
+- Winter is from December - March in the Navajo Nation
+- All analysis is done by water years from 1982 - 2020
+
+# Precipitation Analysis
+```{r, include=FALSE}
+precip <- read_chunks("data")
+```
+
+#### Winter precipitation 
+```{r, echo = FALSE}
+#### Average winter precipitation by water year
+winter_precip_m <- extract_months(precip, wanted_months = c(12,1,2,3)) %>% 
+  filter(year(date) != 1981)
+
+winter_av_m <- winter_precip_m %>% 
+  rename(Date = date) %>% 
+  addWaterYear() %>% 
+  group_by(waterYear) %>% 
+  summarize(precip_av = mean(precipitation)) 
+
+# graph it and add trendline 
+ggplot(winter_av_m, aes(x = waterYear, y = precip_av)) +
+      geom_line() +
+      labs(
+        x = "Water Year",
+        y = "Average Precipitation (mm)"
+      ) +
+      geom_smooth(method = "lm", se = FALSE) +
+     scale_x_continuous(breaks = seq(1981,2021, by = 3), expand = c(0,0)) +
+      theme_bw(base_size = 15)
+
+```
+
+##### Stats on winter precip 
+```{r, echo = FALSE}
+# mann kendall
+MannKendall(winter_av_m$precip_av)
+```
+
+```{r,echo = FALSE}
+# linear model
+summary(lm(precip_av ~ waterYear, data = winter_av_m))
+```
+
+
+#### Anomaly of winter months based on 
+```{r, echo = FALSE}
+dec_anom_plot <- plot_month_anomaly(precip, anom_year = 1992)
+jan_anom_plot <- plot_month_anomaly(precip, months = c(1), anom_year = 1992, title = "January")
+feb_anom_plot <- plot_month_anomaly(precip, months = c(2), anom_year = 1992, title = "February")
+mar_anom_plot <- plot_month_anomaly(precip, months = c(3), anom_year = 1992, title = "March")
+grid.arrange(dec_anom_plot, jan_anom_plot, feb_anom_plot, mar_anom_plot, ncol = 2)
+```
+
+##### March anomaly stats
+
+```{r, echo = FALSE}
+march_precip <- extract_months(precip, wanted_months = c(3)) %>% 
+    rename(Date = date) %>% 
+    addWaterYear() %>% 
+    group_by(waterYear) %>% 
+    summarize(precip_av = mean(precipitation))
+  
+  # determine the average precip for years less than or equal to the anom_year
+  mar_av_anom <- march_precip %>% 
+    filter(waterYear <= 1992) %>% 
+    summarize(av_sample = mean(precip_av))
+  
+  # calculate anomaly for whole time series based off of the anomaly year average 
+  mar_anom <- march_precip %>% 
+    mutate(mean = mar_av_anom$av_sample) %>% 
+    mutate(anomaly = precip_av - mean) %>% 
+    mutate(sign = ifelse(anomaly < 0, "negative", "positive"))
+
+## linear model
+ summary(lm(anomaly ~ waterYear, data = mar_anom)) 
+
+```
+
+
+# Temperature Analysis
+
+```{r, include=FALSE}
+# read in datasets
+tmax <- read_chunks("data", "*max_temp_*", variable = "temperature")
+tmin <- read_chunks("data", "*min_temp_*", variable = "temperature")
+```
+
+#### Number of freezing days each winter
+```{r, echo = FALSE}
+# by water year
+num_freeze_wy <- tmin %>% 
+  extract_months(., wanted_months = c(12,1,2,3)) %>% 
+  mutate(freeze = ifelse(temperature <= 0, 1, 0)) %>% 
+  rename(Date = date) %>% 
+  addWaterYear() %>% 
+  group_by(waterYear) %>%
+  summarize(ndayfr=sum(freeze)) %>% 
+  filter(waterYear != 1981)
+
+# graph it and add trendline 
+ggplot(num_freeze_wy, aes(x = waterYear, y = ndayfr)) +
+    geom_line() +
+    labs(
+      x = "Year",
+      y = "Number of Freezing days "
+    ) +
+    geom_smooth(method = "lm", se = FALSE) +
+    scale_x_continuous(breaks = seq(1980,2020, by = 3), expand = c(0,0)) +
+    theme_bw(base_size = 15)
+```
+
+##### Stats
+```{r, echo = FALSE}
+# stats on freezing days
+summary(lm(ndayfr ~ waterYear, data = num_freeze_wy))
+
+```
+
+```{r, echo = FALSE}
+# mann kendall
+MannKendall(num_freeze_wy$ndayfr)
+```
+
+#### Hottest day of winter temperature 
+```{r,echo = FALSE}
+hotday_wint <- tmax %>% 
+  extract_months(., wanted_months = c(12,1,2,3)) %>% 
+  rename(Date = date) %>% 
+  addWaterYear() %>% 
+  group_by(waterYear) %>%  
+  summarize(hot_temp = max(temperature)) %>% 
+  filter(waterYear != 1981)
+
+# graph it
+ggplot(hotday_wint, aes(x = waterYear, y = hot_temp)) +
+    geom_line() +
+    labs(
+      x = "Water Year",
+      y = "Temperature (°C)"
+    ) +
+    geom_smooth(method = "lm", se = FALSE) +
+    scale_x_continuous(breaks = seq(1980,2020, by = 3), expand = c(0,0)) +
+    theme_bw(base_size = 15)
+```
+
+##### Hottest day of winter stats
+```{r, echo = FALSE}
+# hottest day of witner stats
+summary(lm(hot_temp ~ waterYear, data = hotday_wint))
+
+```
+
+```{r, echo = FALSE}
+# mann kendall
+MannKendall(hotday_wint$hot_temp)
+```

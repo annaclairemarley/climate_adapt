@@ -11,6 +11,7 @@ library(tidyverse)
 library(lubridate)
 library(dataRetrieval)
 library(Kendall)
+library(gridExtra)
 ```
 
 ```{r, echo = FALSE}
@@ -18,28 +19,29 @@ library(Kendall)
 source('../HW_1/functions/read_chunks.R')
 source('../HW_1/functions/extract_months.R')
 source('../HW_1/functions/graph_season_trend.R')
+source('../HW_1/functions/plot_month_anomaly.R')
 ```
-
 
 # Precipitation Analysis
 ```{r, include=FALSE}
 precip <- read_chunks("data")
 ```
 
-#### Raw precipitation data from 1980 to February 2020
+#### Raw precipitation data from 1981 to February 2020
 ```{r, echo = FALSE}
 ggplot(data = precip, aes(x = date, y = precipitation)) +
   geom_line()
 ```
 
-#### Average yearly precipitation 
+#### Average yearly precipitation from Jan 1 1981 to Dec 31 2019
 
 ```{r, echo = FALSE}
 anuual_av <- precip %>% 
   arrange(date) %>% 
   mutate(year = year(date)) %>% 
   group_by(year) %>% 
-  summarize(precip_av = mean(precipitation)) 
+  summarize(precip_av = mean(precipitation)) %>% 
+  filter(year != 2020)
 
 ggplot(anuual_av, aes(x = year, y = precip_av)) +
   geom_line() +
@@ -63,8 +65,10 @@ precip_av_lm_sum <- summary(precip_av_lm)
 Precipitation is decreasing by -0.003404 mm/yr and is statistically signficant, pvalue = 0.02
 
 
-#### Average spring precipitation
+
 ```{r, echo = FALSE}
+
+#### Average spring precipitation from Jan 1 1981 to Dec 31 2019
 # only look at spring precipitation 
 spring_precip <- extract_months(precip, wanted_months = c(3,4,5))
 
@@ -73,17 +77,20 @@ spring_av <- spring_precip %>%
   arrange(date) %>% 
   mutate(year = year(date)) %>% 
   group_by(year) %>% 
-  summarize(precip_av = mean(precipitation)) 
+  summarize(precip_av = mean(precipitation)) %>% 
+  filter(year != 2020)
 
 # graph it and add trendline 
-graph_season_trend(spring_av, 
+spring_precip_plot <- graph_season_trend(spring_av, 
                    climate_data = spring_av$precip_av,
-                   ylabel = "Average Spring Precipitation (mm)")
+                   title = "Spring",
+                   ylabel = "Average Precipitation (mm)")
 
 ```
 
-#### Average summer precipitation
+
 ```{r, echo = FALSE}
+#### Average summer precipitation
 # only look at summer precipitation 
 summer_precip <- extract_months(precip, wanted_months = c(6,7,8))
 
@@ -92,18 +99,21 @@ summer_av <- summer_precip %>%
   arrange(date) %>% 
   mutate(year = year(date)) %>% 
   group_by(year) %>% 
-  summarize(precip_av = mean(precipitation)) 
+  summarize(precip_av = mean(precipitation)) %>% 
+  filter(year != 2020)
 
 # graph it and add trendline 
-graph_season_trend(summer_av, 
+summer_precip_plot <- graph_season_trend(summer_av, 
                    climate_data = summer_av$precip_av,
-                   ylabel = "Average Summer Precipitation (mm)")
+                   title = "Summer",
+                   ylabel = "Average Precipitation (mm)")
 
 ```
 
 
-#### Average Fall precipitation 
+
 ```{r, echo = FALSE}
+#### Average Fall precipitation 
 # only look at fall precipitation 
 fall_precip <- extract_months(precip, wanted_months = c(9,10,11))
 
@@ -112,20 +122,22 @@ fall_av <- fall_precip %>%
   arrange(date) %>% 
   mutate(year = year(date)) %>% 
   group_by(year) %>% 
-  summarize(precip_av = mean(precipitation)) 
+  summarize(precip_av = mean(precipitation)) %>% 
+  filter(year != 2020)
 
 # graph it and add trendline 
-graph_season_trend(fall_av, 
+fall_precip_plot <- graph_season_trend(fall_av, 
                    climate_data = fall_av$precip_av,
-                   ylabel = "Average Fall Precipitation (mm)")
+                   title = "Fall",
+                   ylabel = "Average Precipitation (mm)")
 
 ```
 
 
-#### Average winter precipitation by water year
+
 
 ```{r, echo = FALSE}
-
+#### Average winter precipitation by water year
 winter_precip <- extract_months(precip, wanted_months = c(12,1,2))
 
 winter_av <- winter_precip %>% 
@@ -135,17 +147,25 @@ winter_av <- winter_precip %>%
   summarize(precip_av = mean(precipitation)) 
 
 # graph it and add trendline 
-ggplot(winter_av, aes(x = waterYear, y = precip_av)) +
-  geom_line() +
-  labs(
-    x = "Year",
-    y = "Average Winter Precipitation"
-  ) +
-  geom_smooth(method = "lm", se = FALSE) +
-  scale_x_continuous(expand = c(0,0)) +
-  theme_bw()
+wint_precip_plot <- ggplot(winter_av, aes(x = waterYear, y = precip_av)) +
+                  geom_line() +
+                  labs(
+                    title = "Winter",
+                    x = "Year",
+                    y = "Average Precipitation (mm)"
+                  ) +
+                  geom_smooth(method = "lm", se = FALSE) +
+                  scale_x_continuous(expand = c(0,0)) +
+                  theme_bw()
 
 ```
+
+```{r, echo = FALSE}
+# grid all the season graphs into one graph
+grid.arrange(spring_precip_plot, summer_precip_plot, 
+             fall_precip_plot, wint_precip_plot, ncol = 2)
+```
+
 
 #### Evaluate strengths of the trends
 ```{r, echo = FALSE}
@@ -159,6 +179,7 @@ sum_precip_mk <- MannKendall(summer_av$precip_av)
 fall_precip_mk <- MannKendall(fall_av$precip_av)
 # average winter precip in water years
 win_precip_mk <- MannKendall(winter_av$precip_av)
+
 ```
 - Average annual precipitation: tau = `r round(av_precip_mk$tau, 2)`, pvalue = `r round(av_precip_mk$sl, 2)`
 - Average spring precipitation: tau = `r round(spring_precip_mk$tau, 2)`, pvalue = `r round(spring_precip_mk$sl, 2)`
@@ -166,14 +187,252 @@ win_precip_mk <- MannKendall(winter_av$precip_av)
 - Average fall precipitation: tau = `r round(fall_precip_mk$tau, 2)`, pvalue = `r round(fall_precip_mk$sl, 2)`
 - Average winter precipitation: tau = `r round(win_precip_mk$tau, 2)`, pvalue = `r round(win_precip_mk$sl, 2)`
 
+#### Winter precipitation including March
+```{r, echo = FALSE}
+#### Average winter precipitation by water year
+winter_precip_m <- extract_months(precip, wanted_months = c(12,1,2,3))
+
+winter_av_m <- winter_precip_m %>% 
+  rename(Date = date) %>% 
+  addWaterYear() %>% 
+  group_by(waterYear) %>% 
+  summarize(precip_av = mean(precipitation)) 
+
+# graph it and add trendline 
+ggplot(winter_av_m, aes(x = waterYear, y = precip_av)) +
+      geom_line() +
+      labs(
+        x = "Year",
+        y = "Average Precipitation (mm)"
+      ) +
+      geom_smooth(method = "lm", se = FALSE) +
+     scale_x_continuous(breaks = seq(1981,2021, by = 3), expand = c(0,0)) +
+      theme_bw(base_size = 15)
+
+```
+
+```{r, echo = FALSE}
+### stats on winter precip with march ###
+
+# mann kendall
+win_precip_mk_m <- MannKendall(winter_av_m$precip_av)
+
+# linear model
+
+summary(lm(precip_av ~ waterYear, data = winter_av_m))
+```
+
+
+
+#### Anomaly of winter months
+```{r, echo = FALSE}
+dec_anom_plot <- plot_month_anomaly(precip)
+jan_anom_plot <- plot_month_anomaly(precip, months = c(1), anom_year = 1991, title = "January")
+feb_anom_plot <- plot_month_anomaly(precip, months = c(2), anom_year = 1991, title = "February")
+mar_anom_plot <- plot_month_anomaly(precip, months = c(3), anom_year = 1991, title = "March")
+grid.arrange(dec_anom_plot, jan_anom_plot, feb_anom_plot, mar_anom_plot, ncol = 2)
+```
+
+
 # Temperature Analysis
 
 ```{r, include=FALSE}
+# read in datasets
 tmax <- read_chunks("data", "*max_temp_*", variable = "temperature")
+tmin <- read_chunks("data", "*min_temp_*", variable = "temperature")
+```
 
+
+### Raw maximum temperature data from 1980-2020
+```{r, echo = FALSE}
+ggplot(data = tmax, aes(x = date, y = temperature)) +
+  geom_line()+
+  labs(x = "Date",
+       y = "Max Temperature (degreees C)")
+```
+
+### Raw minimum temperature data from 1980-2020
+
+```{r, echo = FALSE}
+ggplot(data = tmin, aes(x = date, y = temperature)) +
+  geom_line()+
+  labs(x = "Date",
+       y = "Min Temperature (degreees C)")
+```
+
+#### Average annual maximum temperature
+```{r, echo = FALSE}
+anuual_av_temp_max <- tmax %>% 
+  arrange(date) %>% 
+  mutate(year = year(date)) %>% 
+  group_by(year) %>% 
+  summarize(temp_av = mean(temperature)) 
+
+graph_season_trend(anuual_av_temp_max, 
+                   climate_data = anuual_av_temp_max$temp_av,
+                   ylabel = "Average Annual Max Temperature (degrees C)")
+```
+
+#### Average annual minimum temperature
+```{r, echo = FALSE}
+anuual_av_temp <- tmin %>% 
+  arrange(date) %>% 
+  mutate(year = year(date)) %>% 
+  group_by(year) %>% 
+  summarize(temp_av = mean(temperature)) 
+
+graph_season_trend(anuual_av_temp, 
+                   climate_data = anuual_av_temp$temp_av,
+                   ylabel = "Average Annual Min Temperature (degrees C)")
+```
+
+#### Winter minimum temperatures 
+```{r, echo = FALSE}
+#### Average winter temperature by water year
+winter_temp_min <- extract_months(tmin, wanted_months = c(12,1,2,3))
+
+winter_av_temp_min <- winter_temp_min %>% 
+  rename(Date = date) %>% 
+  addWaterYear() %>% 
+  group_by(waterYear) %>% 
+  summarize(temp_av = mean(temperature)) 
+
+# graph it and add trendline 
+ggplot(winter_av_temp_min, aes(x = waterYear, y = temp_av)) +
+    geom_line() +
+    labs(
+      x = "Year",
+      y = "Average Minimum Temperature (°C)"
+    ) +
+    geom_smooth(method = "lm", se = FALSE) +
+    scale_x_continuous(breaks = seq(1981,2021, by = 3), expand = c(0,0)) +
+    theme_bw(base_size = 15)
+
+```
+
+```{r, echo = FALSE}
+# stats for winter min tempeeartures
+
+summary(lm(temp_av ~ waterYear, data = winter_av_temp_min))
+
+# mann kendall
+ MannKendall(winter_av_temp_min$temp_av)
 
 ```
 
 
 
+#### Number of freezing days (temp below 0 degrees C)
+
+```{r, echo = FALSE}
+num_freeze <- tmin %>% 
+  mutate(freeze = ifelse(temperature <= 0, 1, 0)) %>% 
+  group_by(year = year(date)) %>% 
+  summarize(ndayfr=sum(freeze)) %>% 
+  filter(year != 2020)
+
+graph_season_trend(num_freeze, climate_data = num_freeze$ndayfr, 
+                   ylabel = "Number of Freezing Days")
+```
+
+Freezing days in the winter by water year
+```{r, echo = FALSE}
+# by water year
+num_freeze_wy <- tmin %>% 
+  extract_months(., wanted_months = c(12,1,2,3)) %>% 
+  mutate(freeze = ifelse(temperature <= 0, 1, 0)) %>% 
+  rename(Date = date) %>% 
+  addWaterYear() %>% 
+  group_by(waterYear) %>%
+  summarize(ndayfr=sum(freeze)) %>% 
+  filter(waterYear != 1981)
+
+# graph it and add trendline 
+ggplot(num_freeze_wy, aes(x = waterYear, y = ndayfr)) +
+    geom_line() +
+    labs(
+      x = "Year",
+      y = "Number of Freezing days "
+    ) +
+    geom_smooth(method = "lm", se = FALSE) +
+    scale_x_continuous(breaks = seq(1980,2020, by = 3), expand = c(0,0)) +
+    theme_bw(base_size = 15)
+```
+
+```{r, echo = FALSE}
+# stats on freezing days
+summary(lm(ndayfr ~ waterYear, data = num_freeze_wy))
+
+```
+
+
+
+#### Hottest day of the year temperature
+
+```{r, echo = FALSE}
+
+hotday <- tmax %>% 
+  group_by(year = year(date)) %>% 
+  summarize(hot_temp = max(temperature)) %>% 
+  filter(year != 2020)
+
+graph_season_trend(hotday, climate_data = hotday$hot_temp, 
+                   ylabel = "Temperature (Degrees C)")
+
+```
+
+
+
+#### Winter max temperatures 
+```{r, echo = FALSE}
+#### Average winter temperature by water year
+winter_temp_max <- extract_months(tmax, wanted_months = c(12,1,2))
+
+winter_av_temp_max <- winter_temp_max %>% 
+  rename(Date = date) %>% 
+  addWaterYear() %>% 
+  group_by(waterYear) %>% 
+  summarize(temp_av = mean(temperature)) 
+
+# graph it and add trendline 
+ggplot(winter_av_temp_max, aes(x = waterYear, y = temp_av)) +
+    geom_line() +
+    labs(
+      title = "Winter",
+      x = "Year",
+      y = "Average Maximum Temperature (degrees C)"
+    ) +
+    geom_smooth(method = "lm", se = FALSE) +
+    scale_x_continuous(expand = c(0,0)) +
+    theme_bw()
+
+```
+
+#### Hottest day of winter temperature by water year
+```{r,echo = FALSE}
+hotday_wint <- tmax %>% 
+  extract_months(., wanted_months = c(12,1,2,3)) %>% 
+  rename(Date = date) %>% 
+  addWaterYear() %>% 
+  group_by(waterYear) %>%  
+  summarize(hot_temp = max(temperature))
+
+# graph it
+ggplot(hotday_wint, aes(x = waterYear, y = hot_temp)) +
+    geom_line() +
+    labs(
+      x = "Year",
+      y = "Temperature (°C)"
+    ) +
+    geom_smooth(method = "lm", se = FALSE) +
+    scale_x_continuous(breaks = seq(1980,2020, by = 3), expand = c(0,0)) +
+    theme_bw(base_size = 15)
+```
+
+hottest day of witner stats
+```{r, echo = FALSE}
+# hottest day of witner stats
+summary(lm(hot_temp ~ waterYear, data = hotday_wint))
+
+```
 
