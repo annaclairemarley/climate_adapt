@@ -13,6 +13,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(lubridate)
 library(tidyverse)
 library(stats)
+library(tidyquant)
+
 
 ```
 
@@ -68,6 +70,14 @@ Avocado anomaly
 RCP_4.5 <- left_join(tmax_4.5, tmin_4.5, by = "year") %>% 
   left_join(precip_4.5, by = "year")
 
+# plot temp
+ggplot(RCP_4.5, aes(x = year, y = tmax))+
+  geom_line() +
+  geom_line(aes(y = tmin))
+# plot precip
+ggplot(RCP_4.5, aes(x = year, y = precip))+
+  geom_line() 
+
 # avocado yield anomaly
 
 yield_4.5 <- RCP_4.5 %>% 
@@ -121,6 +131,14 @@ Avocado anomaly
 
 RCP_8.5 <- left_join(tmax_8.5, tmin_8.5, by = "year") %>% 
   left_join(precip_8.5, by = "year")
+
+# plot temp
+ggplot(RCP_8.5, aes(x = year, y = tmax))+
+  geom_line() +
+  geom_line(aes(y = tmin))
+# plot precip
+ggplot(RCP_8.5, aes(x = year, y = precip))+
+  geom_line() 
 
 # avocado yield anomaly
 
@@ -223,6 +241,15 @@ precip_4.5 <- clean_clim(precip_4.5_og, type = "precip")
 CCSM4_RCP_4.5 <- left_join(tmax_4.5, tmin_4.5, by = "year") %>% 
   left_join(precip_4.5, by = "year")
 
+# plot temp
+ggplot(CCSM4_RCP_4.5, aes(x = year, y = tmax))+
+  geom_line() +
+  geom_line(aes(y = tmin))
+# plot precip
+ggplot(CCSM4_RCP_4.5, aes(x = year, y = precip))+
+  geom_line() 
+
+
 # avocado yield anomaly
 
 CCSM4_yield_4.5 <- CCSM4_RCP_4.5 %>% 
@@ -294,6 +321,14 @@ precip_8.5 <- clean_clim(precip_8.5_og, type = "precip")
 CCSM4_RCP_8.5 <- left_join(tmax_8.5, tmin_8.5, by = "year") %>% 
   left_join(precip_8.5, by = "year")
 
+# plot temp
+ggplot(CCSM4_RCP_8.5, aes(x = year, y = tmax))+
+  geom_line() +
+  geom_line(aes(y = tmin))
+# plot precip
+ggplot(CCSM4_RCP_8.5, aes(x = year, y = precip))+
+  geom_line() 
+
 # avocado yield anomaly
 
 CCSM4_yield_8.5 <- CCSM4_RCP_8.5 %>% 
@@ -352,21 +387,84 @@ all_project <- left_join(ACCESS_yields, CCSM4_yields, by = "year") %>%
 # plot
 ggplot(all_project, aes(x = year, y = anomaly)) +
   geom_line(aes(color = projection)) +
-  geom_smooth(aes(color = projection), se = FALSE) +
+  geom_smooth(aes(color = projection), 
+              size = 1.2, se = FALSE) +
   labs(
     x = "Year",
     y = "Yield Anomaly (tons/acre)",
     color = "Climate Projections"
   ) + 
-  scale_x_continuous(expand = c(0,0), limits = c(2020,2100)) +
+  scale_x_continuous(expand = c(0,0)) +
   scale_y_continuous(limits = c(-6,2)) +
+  scale_color_manual(values = c("lightsalmon4", "lightsalmon3",
+                                "darkolivegreen4", "darkolivegreen3")) +
   theme_classic() 
 
 ```
 
+```{r}
+# plot
+ggplot(all_project, aes(x = year, y = anomaly, fill = projection)) +
+  geom_smooth(aes(color = projection)) +
+  labs(
+    x = "Year",
+    y = "Yield Anomaly (tons/acre)",
+    color = "Climate Projections"
+  ) + 
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(limits = c(-6,2)) +
+  scale_color_manual(values = c("lightsalmon4", "lightsalmon3",
+                                "darkolivegreen4", "darkolivegreen3")) +
+  scale_fill_manual(values = c("lightsalmon4", "lightsalmon3",
+                                "darkolivegreen4", "darkolivegreen3")) +
+  theme_classic() 
+
+
+```
+
+# moving average
+```{r}
+
+# plot
+ggplot(all_project, aes(x = year, y = anomaly, fill = projection)) +
+  geom_ma(ma_fun = SMA, n = 10, 
+          aes(color = projection, linetype = "solid")) + 
+  labs(
+    x = "Year",
+    y = "Yield Anomaly (tons/acre)",
+    color = "Climate Projections"
+  ) + 
+  scale_x_continuous(expand = c(0,0)) +
+  scale_y_continuous(limits = c(-6,2)) +
+  scale_color_manual(values = c("lightsalmon4", "lightsalmon3",
+                                "darkolivegreen4", "darkolivegreen3")) +
+  scale_fill_manual(values = c("lightsalmon4", "lightsalmon3",
+                                "darkolivegreen4", "darkolivegreen3")) +
+  theme_classic() 
 
 
 
+
+```
+
+# averages for 2007-2037 and 2070-2100
+```{r}
+
+av_06 <- all_project %>% 
+  filter(year %in% c(2007:2036)) %>% 
+  group_by(projection) %>% 
+  summarize(av_yield = mean(anomaly))
+
+av_70 <- all_project %>% 
+  filter(year >= 2070) %>% 
+  group_by(projection) %>% 
+  summarize(av_yield = mean(anomaly)) 
+
+av_yeilds <- left_join(av_06, av_70, by = "projection") %>% 
+  mutate(percent_change = ((av_yield.x - av_yield.y)/av_yield.x)*100)
+  
+
+```
 
 
 
